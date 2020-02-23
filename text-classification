@@ -1,0 +1,119 @@
+from sklearn.datasets import fetch_20newsgroups
+from nltk.stem.snowball import SnowballStemmer
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import SGDClassifier
+import nltk
+import numpy as np
+from sklearn.metrics import confusion_matrix, classification_report
+from keras.utils import to_categorical
+from keras.preprocessing.text import Tokenizer
+from keras.models import Sequential
+from keras.layers import Activation, Dense, Dropout
+from sklearn.preprocessing import LabelBinarizer
+
+class SVMModel:
+	def __init__(self):
+		self.dataset_train = fetch_20newsgroups(subset = 'train', shuffle = True, categories = ['sci.med', 'alt.atheism'])
+		self.dataset_test = fetch_20newsgroups(subset = 'test', shuffle = True, categories = ['sci.med', 'alt.atheism'])
+
+	def model(self):
+		class SCVectorizer(CountVectorizer):
+			def develop_analysis(self):
+				analysis = super(SCVectorizer, self).develop_analysis()
+				return lambda val: ([self.snowball_stemmer.stem(i) for i in analysis(val)])
+
+		self.snowball_stemmer = SnowballStemmer('english', ignore_stopwords = True)
+		self.vector = SCVectorizer(stop_words = 'english')
+		self.classifier = Pipeline([('vect', self.vector), ('tfidf', TfidfTransformer()), ('clf-svm', SGDClassifier(loss='hinge', penalty='l2',alpha=1e-3, max_iter=5, random_state=42))])
+		self.model = self.classifier.fit(self.dataset_train.data, self.dataset_train.target)
+		self.prediction = self.model.predict(self.dataset_test.data)
+		self.accuracy = round((np.mean(self.prediction == self.dataset_test.target)), 3)
+		self.classification_report = classification_report(self.dataset_test.target, self.prediction)
+		self.confusion_matrix = confusion_matrix(self.dataset_test.target, self.prediction)
+		print ('\t\tSUPPORT VECTOR MACHINE')
+		print ('\nAccuracy: ', self.accuracy)
+		print ('\nClassification report:')
+		print (self.classification_report)
+		print ('\nConfusion Matrix:')
+		print (self.confusion_matrix)
+
+class NaiveBayesModel:
+	def __init__(self):
+		self.dataset_train = fetch_20newsgroups(subset = 'train', shuffle = True, categories = ['sci.med', 'alt.atheism'])
+		self.dataset_test = fetch_20newsgroups(subset = 'test', shuffle = True, categories = ['sci.med', 'alt.atheism'])
+
+	def model(self):
+		class SCVectorizer(CountVectorizer):
+			def develop_analysis(self):
+				analysis = super(SCVectorizer, self).develop_analysis()
+				return lambda val: ([self.snowball_stemmer.stem(i) for i in analysis(val)])
+
+		self.snowball_stemmer = SnowballStemmer('english', ignore_stopwords = True)
+		self.vector = SCVectorizer(stop_words = 'english')
+		self.classifier = Pipeline([('vect', self.vector), ('tfidf', TfidfTransformer()), ('mnb', MultinomialNB(fit_prior = False))])
+		self.model = self.classifier.fit(self.dataset_train.data, self.dataset_train.target)
+		self.prediction = self.model.predict(self.dataset_test.data)
+		self.accuracy = round((np.mean(self.prediction == self.dataset_test.target)), 3)
+		self.classification_report = classification_report(self.dataset_test.target, self.prediction)
+		self.confusion_matrix = confusion_matrix(self.dataset_test.target, self.prediction)
+		print ('\t\tNAIVE BAYES MODEL')
+		print ('\nAccuracy: ', self.accuracy)
+		print ('\nClassification report:')
+		print (self.classification_report)
+		print ('\nConfusion Matrix:')
+		print (self.confusion_matrix)
+
+class NeuralNetworkModel:
+	def __init__(self):
+		self.dataset_train = fetch_20newsgroups(subset = 'train', shuffle = True, categories = ['sci.med', 'alt.atheism'])
+		self.dataset_test = fetch_20newsgroups(subset = 'test', shuffle = True, categories = ['sci.med', 'alt.atheism'])
+
+	def model(self):
+		self.encoder = LabelBinarizer()
+		self.encoder.fit(self.dataset_train.target)
+
+		self.tokenizer = Tokenizer(num_words = 30000)
+		self.tokenizer.fit_on_texts(self.dataset_train.data)
+
+		self.X_train = self.tokenizer.texts_to_matrix(self.dataset_train.data, mode = 'tfidf')
+		self.Y_train = to_categorical(self.encoder.transform(self.dataset_train.target))
+		
+		self.X_test = self.tokenizer.texts_to_matrix(self.dataset_test.data, mode = 'tfidf')
+		self.Y_test = to_categorical(self.encoder.transform(self.dataset_test.target))
+
+
+		self.model = Sequential()
+		self.model.add(Dense(512, input_shape = (30000,)))
+		self.model.add(Activation('relu'))
+		self.model.add(Dropout(0.5))
+		self.model.add(Dense(512))
+		self.model.add(Activation('relu'))
+		self.model.add(Dropout(0.5))
+		self.model.add(Dense(2))
+		self.model.add(Activation('softmax'))
+		self.model.compile(loss = 'categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+		self.classificator = self.model.fit(self.X_train, self.Y_train, batch_size = 100, epochs = 50, verbose = 0, validation_split = 0.1)
+
+		self.accuracy = self.model.evaluate(self.X_test, self.Y_test, batch_size = 100, verbose = 0)
+		print ('\t\tNEURAL NETWORK')
+		print('\nAccuracy:', self.accuracy[1])
+		print ('\nModel Summary:')
+		print (self.model.summary())
+
+		 
+
+
+# SVMModel().model()
+# NaiveBayesModel().model()
+
+NeuralNetworkModel().model()
+
+
+
+# /http://ai.intelligentonlinetools.com/ml/text-classification-20-newsgroups-dataset-using-convolutional-neural-network/
+
+# https://www.opencodez.com/python/text-classification-using-keras.htm
+# https://www.kaggle.com/carlosaguayo/deep-learning-for-text-classification
